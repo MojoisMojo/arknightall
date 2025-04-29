@@ -1,0 +1,4 @@
+PyQt6>=6.0.0
+opencv-python>=4.0.0
+mss>=6.0.0
+numpy>=1.18.0
