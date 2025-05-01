@@ -3,6 +3,7 @@ import sys
 import cv2
 import numpy as np
 import os
+import traceback
 from typing import List, Tuple, Dict, Optional, Literal, Union
 import re # 用于解析 OCR 结果
 from tqdm import tqdm # 导入 tqdm 用于进度条
@@ -10,7 +11,7 @@ from src.core.log import logger # 导入日志记录器
 try:
     import ddddocr
 except ImportError:
-    logger.error("错误: 未找到 ddddocr 库。请运行 'pip install ddddocr'")
+    logger.error(f"错误: 未找到 ddddocr 库。请运行 'pip install ddddocr' {traceback.format_exc()}")
     ddddocr = None # 设置为 None 以便后续检查
 
 # Define the path relative to this file's location
