@@ -20,7 +20,7 @@
 
 *   **怪物信息展示 (Monster Information Display)**:
     *   在识别后，将左右两侧的怪物分别以卡片形式展示。
-    *   怪物卡片显示怪物的图标、名称、以及关键属性（生命、攻击、防御、法抗、攻速、攻击范围、特殊能力等，数据来源于 `data/monster.csv`）。
+    *   怪物卡片显示怪物的图标、名称、以及关键属性（生命、攻击、防御、法抗、攻速、攻击范围、特殊能力等，数据来源于 `data/monster.csv`）(部分数据来源 bilibili@碱式碳酸咸鱼)。
     *   攻击力根据伤害类型（物理/法术）以不同颜色显示。
 
 *   **手动添加怪物 (Manual Monster Addition)**:
@@ -36,39 +36,46 @@
     *   **浏览历史**: 查看所有已保存的错题记录，包括当时的怪物组合、截图（如果识别时保存了）、备注等。
     *   **自动匹配提示**: 每次屏幕识别完成后，自动检查识别出的怪物组合是否在错题本中有匹配记录，并进行提示。
 
+## 截图
+![图片](https://github.com/user-attachments/assets/f9b9b9b5-ddd6-4253-bd08-f84f8c8c497d)
+![图片](https://github.com/user-attachments/assets/337db46d-b1d8-44f6-b489-e3eb0a7ce84c)
+![图片](https://github.com/user-attachments/assets/2bd9e2cf-b217-48c9-abf4-b35459b7b3be)
+![图片](https://github.com/user-attachments/assets/1410b333-e3e6-4470-a32a-30b1f5187ddd)
+
+
 ## 技术栈
 
 *   **语言**: Python 3
 *   **GUI**: PyQt6
 *   **图像处理与识别**: OpenCV-Python, MSS (截图)
-*   **数据处理**: NumPy
 *   **数据库**: SQLite (用于错题本)
 *   **日志**: colorlog, logging
 
 ## 运行环境要求
 
 *   **Python**: 3.8 或更高版本 (建议)
-*   **操作系统**: Windows (主要测试环境), macOS/Linux (MSS 和 PyQt6 可能需要额外配置或存在兼容性问题)
+*   **操作系统**: Windows
 *   **依赖库**: 见 `requirements.txt`
 
 ## 安装与运行
-
-1.  **创建并激活虚拟环境** (可选；推荐):
+1.  **克隆或下载仓库**:
+    ```bash
+    git clone https://github.com/xinhai-ai/arknightall # 或者直接下载 ZIP 解压
+    cd arknightall
+    ```
+    
+2.  **创建并激活虚拟环境** (可选；推荐):
     ```bash
     python -m venv venv
-    # Windows
     .\venv\Scripts\activate
-    # macOS/Linux
-    # source venv/bin/activate
     ```
 
-2.  **安装依赖**:
+3.  **安装依赖**:
     ```bash
     pip install -r requirements.txt
     ```
-    *注意：安装 OpenCV 和 PyQt6 可能需要一些时间。*
 
-3.  **运行程序**:
+4.  **运行程序**:
     ```bash
     python main.py
     ```
@@ -98,7 +105,5 @@ ArknightALL/
 
 ## 注意事项
 
-*   首次运行时，`data/mistakes.db` 数据库文件会自动创建。
-*   怪物模板图片 (`data/image/`) 和怪物数据 (`data/monster.csv`) 需要预先准备好。
-*   识别效果依赖于模板图片的质量、游戏内怪物的显示清晰度以及选择的识别区域 (ROI)。
-*   屏幕截图和识别过程可能会消耗一定的系统资源。
+*   识别效果依赖于模板图片的质量、游戏内怪物的显示清晰度以及选择的识别区域。
+*   怪物与数量识别不保证百分百准确
