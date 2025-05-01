@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 # Import after TYPE_CHECKING block
 from src.models.monster import Monster
 from src.core.calculator import calculate_damage
+from src.core.log import logger # Import logger for debugging
 
 
 class DamageArrowWidget(QWidget):

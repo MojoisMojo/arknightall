@@ -1,6 +1,6 @@
 import math
 from typing import Tuple, Union, Optional, TYPE_CHECKING
-
+from src.core.log import logger
 # Use TYPE_CHECKING to avoid circular import issues if Monster needs Calculator later
 if TYPE_CHECKING:
     from src.models.monster import Monster
@@ -29,38 +29,38 @@ def calculate_damage(attacker: 'Monster', defender: 'Monster') -> Tuple[Union[fl
         attack = float(attacker.attack) if attacker.attack is not None and str(attacker.attack).strip() != '' else 0.0
     except (ValueError, TypeError):
         attack = 0.0
-        print(f"警告: 攻击者 {attacker.name} 攻击值无效 ({attacker.attack})")
+        logger.warninga(f"警告: 攻击者 {attacker.name} 攻击值无效 ({attacker.attack})")
 
     try:
         defense = float(defender.defense) if defender.defense is not None and str(defender.defense).strip() != '' else 0.0
     except (ValueError, TypeError):
         defense = 0.0
-        print(f"警告: 防御者 {defender.name} 防御值无效 ({defender.defense})")
+        logger.warning(f"警告: 防御者 {defender.name} 防御值无效 ({defender.defense})")
 
     try:
         # Resistance is often 0-100, convert to 0.0-1.0
         resistance = float(defender.resistance) / 100.0 if defender.resistance is not None and str(defender.resistance).strip() != '' else 0.0
         if not (0.0 <= resistance <= 1.0):
-            print(f"警告: 防御者 {defender.name} 法抗值 ({defender.resistance}) 超出预期范围 (0-100)，已修正为有效范围。")
+            logger.warning(f"警告: 防御者 {defender.name} 法抗值 ({defender.resistance}) 超出预期范围 (0-100)，已修正为有效范围。")
             resistance = max(0.0, min(1.0, resistance))
     except (ValueError, TypeError):
         resistance = 0.0
-        print(f"警告: 防御者 {defender.name} 法抗值无效 ({defender.resistance})")
+        logger.warning(f"警告: 防御者 {defender.name} 法抗值无效 ({defender.resistance})")
 
     try:
         attack_interval = float(attacker.attack_interval) if attacker.attack_interval is not None and str(attacker.attack_interval).strip() != '' else 0.0
     except (ValueError, TypeError):
         attack_interval = 0.0
-        print(f"警告: 攻击者 {attacker.name} 攻击间隔无效 ({attacker.attack_interval})")
+        logger.warning(f"警告: 攻击者 {attacker.name} 攻击间隔无效 ({attacker.attack_interval})")
 
     try:
         defender_health = float(defender.health) if defender.health is not None and str(defender.health).strip() != '' else 0.0
         if defender_health <= 0:
-             print(f"警告: 防御者 {defender.name} 生命值无效或为零 ({defender.health})，百分比计算将为 0。")
+             logger.warning(f"警告: 防御者 {defender.name} 生命值无效或为零 ({defender.health})，百分比计算将为 0。")
              defender_health = 0.0 # Treat as 0 for calculation safety
     except (ValueError, TypeError):
         defender_health = 0.0
-        print(f"警告: 防御者 {defender.name} 生命值无效 ({defender.health})")
+        logger.warning(f"警告: 防御者 {defender.name} 生命值无效 ({defender.health})")
 
 
     # --- Damage Calculation ---

@@ -1,6 +1,7 @@
 import sys
 import os
 from PyQt6.QtWidgets import QApplication
+from src.core.log import logger # 导入日志记录器
 
 # Ensure the 'src' directory is in the Python path
 # This allows importing modules from 'src' when running main.py from the project root
@@ -20,6 +21,7 @@ def main():
     """
     Main function to initialize and run the PyQt application.
     """
+    logger.info("应用程序启动") # 添加启动日志
     # Create the QApplication instance
     # Pass sys.argv to allow command-line arguments for Qt if needed
     app = QApplication(sys.argv)

@@ -2,7 +2,7 @@
 import csv
 import os
 from typing import List, Dict, Any
-
+from src.core.log import logger
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data'))
 MONSTER_CSV_PATH = os.path.join(DATA_DIR, 'monster.csv')
 
@@ -17,7 +17,7 @@ def load_monster_data() -> List[Dict[str, Any]]:
     """
     monsters = []
     if not os.path.exists(MONSTER_CSV_PATH):
-        print(f"Error: Monster data file not found at {MONSTER_CSV_PATH}")
+        logger.error(f"Error: Monster data file not found at {MONSTER_CSV_PATH}")
         return monsters
 
     try:
@@ -27,19 +27,19 @@ def load_monster_data() -> List[Dict[str, Any]]:
             # Use the actual Chinese column names from the CSV
             required_columns = {'ID', '名称'} # Check for essential columns
             if not required_columns.issubset(reader.fieldnames or []): # Handle case where fieldnames might be None
-                print(f"错误：CSV 文件缺少必需的列。需要：{required_columns}，找到：{reader.fieldnames}")
+                logger.error(f"错误：CSV 文件缺少必需的列。需要：{required_columns}，找到：{reader.fieldnames}")
                 return monsters
 
             for row in reader:
                 # Ensure ID exists and is not empty, as it's crucial for linking to images
                 if not row.get('ID'):
-                    print(f"警告：跳过缺少或为空的 'ID' 的行：{row}")
+                    logger.warning(f"警告：跳过缺少或为空的 'ID' 的行：{row}")
                     continue
                 # Type conversion/validation will be handled in the Monster model or UI layer
                 # e.g., converting health, attack to integers
                 monsters.append(dict(row))
     except Exception as e:
-        print(f"Error reading or parsing CSV file {MONSTER_CSV_PATH}: {e}")
+        logger.error(f"Error reading or parsing CSV file {MONSTER_CSV_PATH}: {e}")
         return [] # Return empty list on error
 
     return monsters
@@ -70,17 +70,17 @@ if __name__ == '__main__':
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(dummy_data)
-        print(f"Created dummy {MONSTER_CSV_PATH} for testing.")
+        logger.info(f"Created dummy {MONSTER_CSV_PATH} for testing.")
     except Exception as e:
-        print(f"Could not create dummy CSV: {e}")
+        logger.error(f"Could not create dummy CSV: {e}")
 
     loaded_monsters = load_monster_data()
     if loaded_monsters:
-        print("\nSuccessfully loaded monster data:")
+        logger.info("\nSuccessfully loaded monster data:")
         for monster in loaded_monsters:
-            print(monster)
+            logger.info(monster)
     else:
-        print("\nFailed to load monster data or file is empty/invalid.")
+        logger.error("\nFailed to load monster data or file is empty/invalid.")
 
     # Clean up dummy file
     # try:

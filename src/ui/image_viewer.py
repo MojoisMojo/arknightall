@@ -5,6 +5,8 @@ import numpy as np
 import cv2
 import sys
 
+from src.core.log import logger # Import the logger
+
 class ImageViewer(QWidget):
     """
     A widget to display an image (screenshot) and allow the user to select
@@ -113,8 +115,8 @@ class ImageViewer(QWidget):
                            # Map the valid widget selection rect to original image coordinates
                            self._image_selection_rect = self._map_widget_rect_to_image_rect(self._selection_rect)
 
-                           print(f"Widget Selection Rect (Final): {self._selection_rect}")
-                           print(f"Image Selection Rect (Mapped): {self._image_selection_rect}")
+                           logger.debug(f"Widget Selection Rect (Final): {self._selection_rect}")
+                           logger.debug(f"Image Selection Rect (Mapped): {self._image_selection_rect}")
 
                            if self._image_selection_rect.isValid() and self._image_selection_rect.width() > 0 and self._image_selection_rect.height() > 0:
                                 self.new_selection.emit(self._image_selection_rect) # Emit signal with image coords
@@ -232,7 +234,7 @@ if __name__ == '__main__':
     viewer.set_image(dummy_img_np)
 
     def handle_selection(rect):
-        print(f"Signal Received: New selection in image coordinates: {rect}")
+        logger.debug(f"Signal Received: New selection in image coordinates: {rect}")
         # You could potentially crop the original image here using the rect
         if rect.isValid() and dummy_img_np is not None:
              cropped = dummy_img_np[rect.y():rect.y()+rect.height(), rect.x():rect.x()+rect.width()]

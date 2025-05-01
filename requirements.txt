@@ -1,4 +1,9 @@
-PyQt6>=6.0.0
-opencv-python>=4.0.0
-mss>=6.0.0
-numpy>=1.18.0
+colorlog==6.9.0
+ddddocr==1.5.6
+mss==10.0.0
+numpy==2.2.5
+opencv_python==4.11.0.86
+opencv_python_headless==4.11.0.86
+PyQt6==6.9.0
+PyQt6_sip==13.10.0
+tqdm==4.67.1

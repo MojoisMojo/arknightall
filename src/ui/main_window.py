@@ -5,6 +5,7 @@ import mss # Keep mss import here as it's used directly for capture
 import numpy as np
 import json
 import time
+import logging # Import logging module
 # import sqlite3 # No longer needed directly here
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
@@ -13,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 # Added QAction
 from PyQt6.QtGui import QPixmap, QColor, QIcon, QTextOption, QMouseEvent, QImage, QAction
-from PyQt6.QtCore import Qt, QRect, QSize, QUrl, pyqtSignal # Added QSize, QUrl for anchor clicks, pyqtSignal for custom signals
+from PyQt6.QtCore import Qt, QRect, QSize, QUrl, pyqtSignal, QTimer # Added QSize, QUrl for anchor clicks, pyqtSignal, QTimer
 from typing import Dict, Literal, List, Set, Optional,Tuple
 # Adjust import paths to work when run from main.py or directly
 # This assumes main.py is in the project root
@@ -26,7 +27,9 @@ from src.core.data_loader import load_monster_data
 from src.models.monster import Monster # Import the Monster model
 from src.ui.damage_info_window import DamageInfoWindow # Import the new window
 from src.ui.mistake_book_manager import MistakeBookManager, MistakeBookEntryDialog, MistakeBookQueryDialog # Import mistake book components
+from src.core.log import logger # Import the logger
 from functools import partial # Import partial for connecting signals with args
+
 # No longer need ImageViewer
 # from src.ui.image_viewer import ImageViewer
 
@@ -214,8 +217,19 @@ class MainWindow(QMainWindow):
 
         # Populate the monster selection list after all UI is set up
         self._populate_monster_selection_list()
+        self._update_mistake_actions_state() # Set initial state
 
     # --- Removed _create_results_table ---
+
+    def _update_mistake_actions_state(self):
+        """Updates the enabled state of mistake book actions based on current monsters."""
+        # Check layouts and update actions.
+        left_monsters = self._get_monsters_from_layout(self.left_display_layout)
+        right_monsters = self._get_monsters_from_layout(self.right_display_layout)
+        can_add_or_query = bool(left_monsters or right_monsters)
+        self.action_add_mistake.setEnabled(can_add_or_query)
+        self.action_query_combination.setEnabled(can_add_or_query)
+        # logger.debug(f"Mistake actions updated: Add={can_add_or_query}, Query={can_add_or_query}") # Optional Debugging
 
     def _load_templates_safe(self):
         """Loads templates and handles potential errors."""
@@ -247,10 +261,10 @@ class MainWindow(QMainWindow):
                 if monster_obj.template_name and monster_obj.template_name != "obj_unknown":
                      monster_data_dict[monster_obj.template_name] = monster_obj
                 else:
-                     print(f"警告：跳过无法生成有效 template_name 的怪物数据：{row_dict}")
+                     logger.warning(f"跳过无法生成有效 template_name 的怪物数据：{row_dict}")
                      skipped_count += 1
             except Exception as e:
-                print(f"错误：转换 CSV 行到 Monster 对象时出错：{row_dict} - {e}")
+                logger.error(f"转换 CSV 行到 Monster 对象时出错：{row_dict} - {e}")
                 skipped_count += 1
 
         if skipped_count > 0:
@@ -258,15 +272,13 @@ class MainWindow(QMainWindow):
                                 f"加载数据时跳过了 {skipped_count} 行无效或不完整的怪物数据。请检查控制台输出和 CSV 文件。")
 
         if not monster_data_dict:
-             QMessageBox.critical(self, "数据错误",
-                                f"未能成功加载任何有效的怪物数据。请检查 CSV 文件格式和内容。\n路径: {MONSTER_CSV_PATH}")
-             return {}
-
-        print(f"成功加载并转换了 {len(monster_data_dict)} 条怪物数据。")
+            QMessageBox.critical(self, "数据错误",f"未能成功加载任何有效的怪物数据。请检查 CSV 文件格式和内容。\n路径: {MONSTER_CSV_PATH}")
+            return {}
+        logger.info(f"成功加载并转换了 {len(monster_data_dict)} 条怪物数据。")
         return monster_data_dict
 
 
-    # --- Manual Add/Select Methods ---
+   # --- Manual Add/Select Methods ---
 
     def _populate_monster_selection_list(self, selected_template_name: str | None = None):
         """
@@ -332,7 +344,7 @@ class MainWindow(QMainWindow):
         if template_name in self.monster_data:
              monster_name = self.monster_data[template_name].name
         self.selected_monster_label.setText(f"当前选择: {monster_name} ({template_name})")
-        print(f"已选择: {template_name}") # Debugging output
+        logger.debug(f"已选择: {template_name}") # Debugging output
 
     def _add_monster_manually(self, side: Literal['left', 'right']):
         """Adds the selected monster card to the specified side."""
@@ -349,7 +361,8 @@ class MainWindow(QMainWindow):
         # Pass the side when creating the card
         monster_card = self._create_monster_card(monster_info, side)
         target_layout.addWidget(monster_card)
-        print(f"已手动添加 {monster_info.name} 到 {side} 侧。")
+        self._update_mistake_actions_state() # Update state after manual add
+        logger.debug(f"已手动添加 {monster_info.name} 到 {side} 侧。")
 
 
     # --- New Workflow Methods ---
@@ -383,7 +396,7 @@ class MainWindow(QMainWindow):
             self.recognition_roi = selected_rect
             self.recognize_button.setEnabled(True) # Enable recognition button
             self.status_label.setText(f"状态：识别区域已设置: {selected_rect.x()},{selected_rect.y()} {selected_rect.width()}x{selected_rect.height()}。点击“识别”。")
-            print(f"ROI 设置成功: {self.recognition_roi}")
+            logger.info(f"ROI 设置成功: {self.recognition_roi}")
         else:
             # Selection was cancelled or invalid
             if not self.recognition_roi.isValid(): # Only reset status if no valid ROI was set before
@@ -425,9 +438,9 @@ class MainWindow(QMainWindow):
                 try:
                     save_path = "captured_roi_for_recognition.png"
                     cv2.imwrite(save_path, roi_screenshot)
-                    print(f"调试：已将捕获的 ROI 区域保存至 {save_path}")
+                    logger.debug(f"已将捕获的 ROI 区域保存至 {save_path}")
                 except Exception as save_e:
-                    print(f"警告：保存捕获的 ROI 图像失败: {save_e}")
+                    logger.warning(f"保存捕获的 ROI 图像失败: {save_e}")
 
             # Store the screenshot temporarily for the add mistake dialog
             self.last_roi_screenshot = roi_screenshot.copy() # Store a copy
@@ -465,21 +478,21 @@ class MainWindow(QMainWindow):
 
         # --- Display Annotated Image ---
         if annotated_image is not None and annotated_image.shape[0] > 0 and annotated_image.shape[1] > 0:
-             try:
-                 height, width, channel = annotated_image.shape
-                 bytes_per_line = 3 * width
-                 q_image = QImage(annotated_image.data, width, height, bytes_per_line, QImage.Format.Format_BGR888)
-                 pixmap = QPixmap.fromImage(q_image)
-                 # Scale pixmap to fit the label while keeping aspect ratio
-                 self.annotated_image_display.setPixmap(pixmap.scaled(
-                     self.annotated_image_display.size(), # Scale to the label's current size
-                     Qt.AspectRatioMode.KeepAspectRatio,
-                     Qt.TransformationMode.SmoothTransformation))
-             except Exception as img_disp_e:
-                 print(f"错误：在UI中显示标注图像时出错: {img_disp_e}")
-                 self.annotated_image_display.setText("无法显示识别结果图像")
+            try:
+                height, width, channel = annotated_image.shape
+                bytes_per_line = 3 * width
+                q_image = QImage(annotated_image.data, width, height, bytes_per_line, QImage.Format.Format_BGR888)
+                pixmap = QPixmap.fromImage(q_image)
+                # Scale pixmap to fit the label while keeping aspect ratio
+                self.annotated_image_display.setPixmap(pixmap.scaled(
+                    self.annotated_image_display.size(), # Scale to the label's current size
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation))
+            except Exception as img_disp_e:
+                logger.error(f"在UI中显示标注图像时出错: {img_disp_e}")
+                self.annotated_image_display.setText("无法显示识别结果图像")
         else:
-             self.annotated_image_display.setText("识别函数未返回有效图像")
+            self.annotated_image_display.setText("识别函数未返回有效图像")
 
 
         # --- Display Results (Monster Cards) ---
@@ -499,10 +512,8 @@ class MainWindow(QMainWindow):
         self._populate_display(self.left_display_layout, left_monster_types, 'left', recognition_results)
         self._populate_display(self.right_display_layout, right_monster_types, 'right', recognition_results)
 
-        # Enable mistake book actions that depend on current monsters
-        can_add_or_query = bool(left_monster_types or right_monster_types)
-        self.action_add_mistake.setEnabled(can_add_or_query)
-        self.action_query_combination.setEnabled(can_add_or_query)
+        # Update mistake book actions state based on current monsters
+        self._update_mistake_actions_state()
 
         # Check for mistake book matches (for automatic notification)
         self._check_for_mistake_book_matches(left_monster_types, right_monster_types)
@@ -562,7 +573,7 @@ class MainWindow(QMainWindow):
         pixmap = QPixmap(image_path)
         if pixmap.isNull():
             image_label.setText("无图")
-            print(f"警告：无法加载图片 {image_path}")
+            logger.warning(f"无法加载图片 {image_path}")
         else:
             # Scale pixmap while preserving aspect ratio
             image_label.setPixmap(pixmap.scaled(image_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
@@ -603,6 +614,20 @@ class MainWindow(QMainWindow):
         stats_layout.addWidget(QLabel(f"<font color='saddlebrown' style='font-size: {font_size}px;'>防御: {format_value(monster_info.defense)}</font>"))
         stats_layout.addWidget(QLabel(f"<font color='darkviolet' style='font-size: {font_size}px;'>法抗: {format_value(monster_info.resistance)}</font>"))
         stats_layout.addWidget(QLabel(f"<font color='orange' style='font-size: {font_size}px;'>攻速: {format_value(monster_info.attack_interval)}</font>"))
+
+        # --- Add Attack Range ---
+        attack_range_value = monster_info.attack_range # Assuming attribute name is 'attack_range'
+        attack_range_text = "近战" # Default to Melee
+        try:
+            # Check if it's a valid number > 0
+            if attack_range_value is not None and str(attack_range_value).strip() and float(attack_range_value) > 0:
+                attack_range_text = format_value(attack_range_value)
+        except (ValueError, TypeError):
+            # If conversion fails or it's not a number, keep "近战"
+            pass
+        stats_layout.addWidget(QLabel(f"<font color='darkcyan' style='font-size: {font_size}px;'>攻击范围: {attack_range_text}</font>"))
+        # --- End Attack Range ---
+
         # stats_layout.addWidget(QLabel(f"<font color='teal' style='font-size: {font_size}px;'>移速: {format_value(monster_info.move_speed)}</font>")) # Maybe hide move speed
 
         ability_text = format_value(monster_info.special_ability, '无')
@@ -624,7 +649,9 @@ class MainWindow(QMainWindow):
         remove_button.setStyleSheet("QPushButton { border: none; background-color: #FFDDDD; border-radius: 10px; font-weight: bold; color: red; } QPushButton:hover { background-color: #FFBBBB; }")
         # Connect clicked signal to delete the parent card widget
         # Need to find the card in the layout and remove it properly
-        remove_button.clicked.connect(card.deleteLater) # Simple delete for now
+        remove_button.clicked.connect(card.deleteLater)
+        # Use QTimer to update state *after* the widget is likely removed from layout
+        remove_button.clicked.connect(lambda: QTimer.singleShot(0, self._update_mistake_actions_state))
         button_vlayout.addWidget(remove_button)
 
         card_layout.addLayout(button_vlayout) # Add vertical button layout to the main horizontal layout
@@ -656,7 +683,7 @@ class MainWindow(QMainWindow):
         Shows the DamageInfoWindow for the clicked monster, calculating bidirectional damage.
         Triggered by clicking the monster's image label.
         """
-        print(f"显示 {clicked_monster.name} ({clicked_side}侧) 的双向伤害信息...")
+        logger.info(f"显示 {clicked_monster.name} ({clicked_side}侧) 的双向伤害信息...")
 
         # Identify the source and target lists based on which side was clicked
         if clicked_side == 'left':
@@ -703,7 +730,7 @@ class MainWindow(QMainWindow):
             monster_info: Monster | None = self.monster_data.get(template_name)
 
             if not monster_info:
-                print(f"警告：在数据中找不到模板名称 '{template_name}' 对应的怪物信息。")
+                logger.warning(f"在数据中找不到模板名称 '{template_name}' 对应的怪物信息。")
                 # Optionally add a placeholder card for missing data
                 missing_label = QLabel(f"{template_name} (数据缺失)")
                 display_layout.addWidget(missing_label)
@@ -764,21 +791,33 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "查询当前组合", "左右两侧均无怪物可供查询。")
             return
 
-        left_types = [m.template_name for m in left_monsters]
-        right_types = [m.template_name for m in right_monsters]
+        # Extract only the Monster object (first element) from the tuple
+        left_types = [monster.template_name for monster, count in left_monsters]
+        right_types = [monster.template_name for monster, count in right_monsters]
 
         matching_ids = self.mistake_manager.find_matching_mistakes(left_types, right_types)
 
         if matching_ids:
-            QMessageBox.information(self, "查询当前组合",
-                                    f"找到 {len(matching_ids)} 条与当前左右怪物组合匹配的错题记录。\n\n"
-                                    "您可以使用“浏览错题本历史”查看详细信息。")
+            match_count = len(matching_ids)
+            reply = QMessageBox.question(self, "查询结果",
+                                         f"找到 {match_count} 条与当前组合匹配的错题记录。\n\n"
+                                         "是否立即跳转到历史记录查看？",
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                         QMessageBox.StandardButton.Yes) # Default to Yes
+
+            if reply == QMessageBox.StandardButton.Yes:
+                # 调用浏览历史的方法，并传递需要高亮的 ID
+                # 注意: _browse_mistake_history 需要修改以接受 highlight_ids 参数
+                self._browse_mistake_history(highlight_ids=matching_ids)
         else:
             QMessageBox.information(self, "查询当前组合", "未找到与当前左右怪物组合匹配的错题记录。")
 
 
-    def _browse_mistake_history(self):
-        """Action: Opens the dialog to browse all mistake book entries."""
+    def _browse_mistake_history(self, highlight_ids: Optional[List[int]] = None):
+        """
+        Action: Opens the dialog to browse all mistake book entries.
+        Optionally highlights specific entries based on provided IDs.
+        """
         # Load fresh data from DB via manager when querying
         current_entries = self.mistake_manager.load_all_mistakes()
         if not current_entries:
@@ -786,7 +825,15 @@ class MainWindow(QMainWindow):
             return
 
         # Use MistakeBookQueryDialog to show all entries
-        dialog = MistakeBookQueryDialog(current_entries, self.monster_data, self.mistake_manager, self) # Pass self.mistake_manager as manager
+        # Pass highlight_ids to the dialog constructor
+        # Note: MistakeBookQueryDialog needs to be updated to accept and use this parameter
+        dialog = MistakeBookQueryDialog(
+            current_entries,
+            self.monster_data,
+            self.mistake_manager,
+            highlight_ids=highlight_ids, # Pass the IDs here
+            parent=self
+        )
         dialog.exec()
 
 
@@ -808,7 +855,7 @@ class MainWindow(QMainWindow):
                                          f"发现 {match_count} 条与当前识别结果匹配的错题记录。\n\n是否立即查看？",
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                          QMessageBox.StandardButton.No)
-            print(f"发现匹配的错题记录 ID: {matching_ids}")
+            logger.debug(f"发现匹配的错题记录 ID: {matching_ids}")
             if reply == QMessageBox.StandardButton.Yes:
                 self._browse_mistake_history() # Open the history browser if user clicks Yes
         else:
@@ -829,9 +876,11 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     # No longer create dummy files here, rely on actual data or error messages.
-    print("启动主窗口...")
-    print(f"预期数据文件路径: {MONSTER_CSV_PATH}")
-    print(f"预期模板目录路径: {TEMPLATE_DIR}")
+    # Configure basic logging for the __main__ block
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger.info("启动主窗口...")
+    logger.info(f"预期数据文件路径: {MONSTER_CSV_PATH}")
+    logger.info(f"预期模板目录路径: {TEMPLATE_DIR}")
 
     window = MainWindow()
     window.show()

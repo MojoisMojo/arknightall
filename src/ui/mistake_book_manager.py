@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QPixmap, QImage, QIcon, QAction # Added QAction
 from PyQt6.QtCore import Qt, QUrl, QPoint
-
+from src.core.log import logger # Import the logger
 # Assuming models and constants are accessible relative to the main execution context
 # Adjust paths if necessary based on how this module is imported/used
 try:
@@ -71,9 +71,9 @@ class MistakeBookManager:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_right_keys ON mistakes (right_monster_keys)")
             conn.commit()
             conn.close()
-            print(f"数据库初始化成功: {self.db_path}")
+            logger.info(f"数据库初始化成功: {self.db_path}")
         except Exception as e:
-            print(f"数据库初始化失败: {e}")
+            logger.error(f"数据库初始化失败: {e}")
             # Consider raising an exception or handling it more gracefully
             raise RuntimeError(f"Failed to initialize database: {e}") from e
 
@@ -102,55 +102,55 @@ class MistakeBookManager:
                         "outcome": row['outcome'] # Load outcome
                     })
                 except json.JSONDecodeError as json_e:
-                    print(f"警告：无法解析数据库中的JSON数据 (ID: {row['id']}) - {json_e}")
+                    logger.warning(f"警告：无法解析数据库中的JSON数据 (ID: {row['id']}) - {json_e}")
                 except Exception as parse_e:
-                     print(f"警告：处理数据库行时出错 (ID: {row['id']}) - {parse_e}")
+                    logger.warning(f"警告：处理数据库行时出错 (ID: {row['id']}) - {parse_e}")
 
-            print(f"从数据库成功加载 {len(entries)} 条错题记录。")
+            logger.debug(f"从数据库成功加载 {len(entries)} 条错题记录。")
             return entries
         except sqlite3.Error as db_e:
-            print(f"数据库加载错误: {db_e}")
+            logger.error(f"数据库加载错误: {db_e}")
             QMessageBox.critical(None, "数据库加载错误", f"从数据库加载错题记录时出错：{db_e}")
             return []
         except Exception as e:
-             print(f"数据库加载失败: {e}")
-             QMessageBox.critical(None, "数据库加载失败", f"加载错题记录时发生未知错误：{e}")
-             return []
+            logger.error(f"数据库加载失败: {e}")
+            QMessageBox.critical(None, "数据库加载失败", f"加载错题记录时发生未知错误：{e}")
+            return []
 
     def insert_mistake(self, entry_data: Dict) -> int | None:
-         """Inserts a new mistake entry into the database."""
-         timestamp = entry_data.get('timestamp', time.strftime("%Y-%m-%d %H:%M:%S"))
-         left_monsters = entry_data.get('left', {}).get('monsters', {})
-         right_monsters = entry_data.get('right', {}).get('monsters', {})
-         notes = entry_data.get('notes', '')
-         outcome = entry_data.get('outcome', 'unknown') # Get outcome
+        """Inserts a new mistake entry into the database."""
+        timestamp = entry_data.get('timestamp', time.strftime("%Y-%m-%d %H:%M:%S"))
+        left_monsters = entry_data.get('left', {}).get('monsters', {})
+        right_monsters = entry_data.get('right', {}).get('monsters', {})
+        notes = entry_data.get('notes', '')
+        outcome = entry_data.get('outcome', 'unknown') # Get outcome
 
-         left_json = json.dumps(left_monsters, sort_keys=True)
-         right_json = json.dumps(right_monsters, sort_keys=True)
-         left_keys_str = ",".join(sorted(left_monsters.keys()))
-         right_keys_str = ",".join(sorted(right_monsters.keys()))
+        left_json = json.dumps(left_monsters, sort_keys=True)
+        right_json = json.dumps(right_monsters, sort_keys=True)
+        left_keys_str = ",".join(sorted(left_monsters.keys()))
+        right_keys_str = ",".join(sorted(right_monsters.keys()))
 
-         try:
-             conn = sqlite3.connect(self.db_path)
-             cursor = conn.cursor()
-             # Insert outcome value
-             cursor.execute('''
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            # Insert outcome value
+            cursor.execute('''
                  INSERT INTO mistakes (timestamp, left_monsters_json, right_monsters_json, notes, outcome, left_monster_keys, right_monster_keys)
                  VALUES (?, ?, ?, ?, ?, ?, ?)
              ''', (timestamp, left_json, right_json, notes, outcome, left_keys_str, right_keys_str))
-             conn.commit()
-             new_id = cursor.lastrowid
-             conn.close()
-             print(f"新错题记录已插入数据库，ID: {new_id}")
-             return new_id
-         except sqlite3.Error as db_e:
-             print(f"数据库插入错误: {db_e}")
-             QMessageBox.critical(None, "数据库插入错误", f"插入错题记录时出错：{db_e}")
-             return None
-         except Exception as e:
-             print(f"数据库插入失败: {e}")
-             QMessageBox.critical(None, "数据库插入失败", f"插入错题记录时发生未知错误：{e}")
-             return None
+            conn.commit()
+            new_id = cursor.lastrowid
+            conn.close()
+            logger.info(f"新错题记录已插入数据库，ID: {new_id}")
+            return new_id
+        except sqlite3.Error as db_e:
+            logger.error(f"数据库插入错误: {db_e}")
+            QMessageBox.critical(None, "数据库插入错误", f"插入错题记录时出错：{db_e}")
+            return None
+        except Exception as e:
+            logger.error(f"数据库插入失败: {e}")
+            QMessageBox.critical(None, "数据库插入失败", f"插入错题记录时发生未知错误：{e}")
+            return None
 
     def find_matching_mistakes(self, current_left_types: List[str], current_right_types: List[str]) -> List[int]:
         """Checks if the current recognition matches any mistake book entries in the DB."""
@@ -173,13 +173,13 @@ class MistakeBookManager:
             matching_ids = [row[0] for row in rows]
             return matching_ids
         except sqlite3.Error as db_e:
-             print(f"数据库查询错误 (匹配): {db_e}")
-             QMessageBox.warning(None, "数据库查询错误", f"检查错题记录匹配时出错：{db_e}")
-             return []
+            logger.error(f"数据库查询错误 (匹配): {db_e}")
+            QMessageBox.warning(None, "数据库查询错误", f"检查错题记录匹配时出错：{db_e}")
+            return []
         except Exception as e:
-             print(f"匹配检查错误: {e}")
-             QMessageBox.warning(None, "匹配检查错误", f"检查错题记录匹配时发生未知错误：{e}")
-             return []
+            logger.error(f"匹配检查错误: {e}")
+            QMessageBox.warning(None, "匹配检查错误", f"检查错题记录匹配时发生未知错误：{e}")
+            return []
 
     def update_mistake(self, entry_id: int, updated_data: Dict) -> bool:
         """Updates an existing mistake entry in the database."""
@@ -206,17 +206,17 @@ class MistakeBookManager:
             updated_rows = cursor.rowcount
             conn.close()
             if updated_rows > 0:
-                print(f"错题记录 (ID: {entry_id}) 已更新。")
+                logger.info(f"错题记录 (ID: {entry_id}) 已更新。")
                 return True
             else:
-                print(f"警告：未找到要更新的错题记录 (ID: {entry_id})。")
+                logger.error(f"警告：未找到要更新的错题记录 (ID: {entry_id})。")
                 return False
         except sqlite3.Error as db_e:
-            print(f"数据库更新错误 (ID: {entry_id}): {db_e}")
+            logger.error(f"数据库更新错误 (ID: {entry_id}): {db_e}")
             QMessageBox.critical(None, "数据库更新错误", f"更新错题记录 (ID: {entry_id}) 时出错：{db_e}")
             return False
         except Exception as e:
-            print(f"数据库更新失败 (ID: {entry_id}): {e}")
+            logger.error(f"数据库更新失败 (ID: {entry_id}): {e}")
             QMessageBox.critical(None, "数据库更新失败", f"更新错题记录 (ID: {entry_id}) 时发生未知错误：{e}")
             return False
 
@@ -230,18 +230,18 @@ class MistakeBookManager:
             deleted_rows = cursor.rowcount
             conn.close()
             if deleted_rows > 0:
-                print(f"错题记录 (ID: {entry_id}) 已删除。")
+                logger.info(f"错题记录 (ID: {entry_id}) 已删除。")
                 return True
             else:
                 # This might happen if the item was deleted between selection and confirmation
-                print(f"警告：未找到要删除的错题记录 (ID: {entry_id})。")
+                logger.warning(f"警告：未找到要删除的错题记录 (ID: {entry_id})。")
                 return False
         except sqlite3.Error as db_e:
-            print(f"数据库删除错误 (ID: {entry_id}): {db_e}")
+            logger.error(f"数据库删除错误 (ID: {entry_id}): {db_e}")
             QMessageBox.critical(None, "数据库删除错误", f"删除错题记录 (ID: {entry_id}) 时出错：{db_e}")
             return False
         except Exception as e:
-            print(f"数据库删除失败 (ID: {entry_id}): {e}")
+            logger.error(f"数据库删除失败 (ID: {entry_id}): {e}")
             QMessageBox.critical(None, "数据库删除失败", f"删除错题记录 (ID: {entry_id}) 时发生未知错误：{e}")
             return False
 
@@ -292,7 +292,7 @@ class MistakeBookEntryDialog(QDialog):
                 layout.addWidget(screenshot_label)
                 layout.addWidget(screenshot_display)
             except Exception as e:
-                print(f"错误：无法显示截图 - {e}")
+                logger.error(f"错误：无法显示截图 - {e}")
                 layout.addWidget(QLabel("<i>无法显示截图</i>"))
 
         form_layout = QFormLayout()
@@ -439,13 +439,14 @@ class MistakeBookEntryDialog(QDialog):
 
 class MistakeBookQueryDialog(QDialog):
     """Dialog for viewing and managing mistake book entries with context menu."""
-    # Add manager reference to handle DB operations
-    def __init__(self, entries: List[Dict], all_monster_data: Dict[str, Monster], manager: MistakeBookManager, parent=None):
+    # Add manager reference and highlight_ids
+    def __init__(self, entries: List[Dict], all_monster_data: Dict[str, Monster], manager: MistakeBookManager, highlight_ids: Optional[List[int]] = None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("查询错题记录")
         self.entries = entries # Now includes 'id' key from DB
         self.all_monster_data = all_monster_data
         self.manager = manager # Store manager reference
+        self.highlight_ids = highlight_ids # Store the IDs to highlight/scroll to
 
         layout = QHBoxLayout(self)
 
@@ -509,10 +510,34 @@ class MistakeBookQueryDialog(QDialog):
         button_box_details.addWidget(close_button)
         details_layout.addLayout(button_box_details)
 
-        # Initial display
+        # Initial display and scrolling/highlighting
+        # QListWidget is imported at the top of the file. ScrollHint is part of QListWidget.
+
         if self.entries:
-            self.list_widget.setCurrentRow(0)
+            first_item_to_select = None
+            # Find the first item matching the highlight IDs
+            if self.highlight_ids:
+                highlight_set = set(self.highlight_ids) # Use set for faster lookup
+                for i in range(self.list_widget.count()):
+                    item = self.list_widget.item(i)
+                    entry_id = item.data(Qt.ItemDataRole.UserRole)
+                    if entry_id in highlight_set:
+                        first_item_to_select = item
+                        break # Found the first one
+
+            if first_item_to_select:
+                # Scroll to and select the found item
+                self.list_widget.scrollToItem(first_item_to_select, QListWidget.ScrollHint.PositionAtCenter)
+                self.list_widget.setCurrentItem(first_item_to_select) # This triggers _display_entry_details
+                logger.info(f"已跳转到错题记录 ID: {first_item_to_select.data(Qt.ItemDataRole.UserRole)}")
+            elif self.list_widget.count() > 0:
+                 # If no highlight IDs or no match found, select the first item
+                 self.list_widget.setCurrentRow(0)
+            else:
+                 # If list is empty after population
+                 self._clear_details()
         else:
+            # If entries list was initially empty
             self._clear_details()
 
         self.setMinimumSize(900, 600) # Increase minimum size further
@@ -722,12 +747,12 @@ class MistakeBookQueryDialog(QDialog):
         entry_id = current_item.data(Qt.ItemDataRole.UserRole)
         if entry_id is None or not isinstance(entry_id, int):
              self._clear_details()
-             print(f"错误：无效的条目 ID '{entry_id}'。")
+             logger.error(f"错误：无效的条目 ID '{entry_id}'。")
              return
         entry = next((e for e in self.entries if e.get('id') == entry_id), None)
         if entry is None:
             self._clear_details()
-            print(f"错误：在加载的条目中找不到 ID 为 {entry_id} 的记录。")
+            logger.error(f"错误：在加载的条目中找不到 ID 为 {entry_id} 的记录。")
             return
         try:
             left_monsters = entry.get('left', {}).get('monsters', {})
@@ -756,6 +781,6 @@ class MistakeBookQueryDialog(QDialog):
             self.details_outcome_display.setText(f"<font color='{outcome_color}' style='font-size: {outcome_font_size}pt;'><b>{outcome_text}</b></font>")
             self.details_notes_display.setPlainText(notes if notes else "无笔记")
         except Exception as e:
-            print(f"错误：显示错题记录详情时出错 (ID {entry_id}): {e}")
+            logger.error(f"错误：显示错题记录详情时出错 (ID {entry_id}): {e}")
             self._clear_details()
             QMessageBox.warning(self, "显示错误", f"无法显示所选错题记录的详情：\n{e}")
