@@ -1,13 +1,14 @@
+import math
 import os
 from typing import List, TYPE_CHECKING
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QScrollArea, QFrame,
-    QSizePolicy,
-    QMessageBox # Import QMessageBox here for error handling
-)
+
+from PyQt6.QtCore import Qt, QPoint, QRectF  # Use QRectF for floating point precision if needed
 from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QTextDocument, QTextOption  # Import QTextDocument
-from PyQt6.QtCore import Qt, QPoint, QRectF # Use QRectF for floating point precision if needed
-import math
+from PyQt6.QtWidgets import (
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QScrollArea,
+    QSizePolicy  # Import QMessageBox here for error handling
+)
+
 # Adjust import path for data directory
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data'))
 TEMPLATE_DIR = os.path.join(DATA_DIR, 'image')
@@ -20,7 +21,6 @@ if TYPE_CHECKING:
 # Import after TYPE_CHECKING block
 from src.models.monster import Monster
 from src.core.calculator import calculate_damage
-from src.core.log import logger # Import logger for debugging
 
 
 class DamageArrowWidget(QWidget):

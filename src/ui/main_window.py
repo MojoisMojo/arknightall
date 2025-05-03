@@ -1,21 +1,21 @@
-import sys
+import logging  # Import logging module
 import os
+import sys
+from typing import Dict, Literal, List, Optional, Tuple
+
 import cv2
-import mss # Keep mss import here as it's used directly for capture
+import mss  # Keep mss import here as it's used directly for capture
 import numpy as np
-import json
-import time
-import logging # Import logging module
+from PyQt6.QtCore import Qt, QRect, QUrl, pyqtSignal, QTimer  # Added QSize, QUrl for anchor clicks, pyqtSignal, QTimer
+# Added QAction
+from PyQt6.QtGui import QPixmap, QTextOption, QMouseEvent, QImage, QAction
 # import sqlite3 # No longer needed directly here
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QMessageBox, QScrollArea, QSizePolicy, QTextBrowser, QMenu # Added QMenu
+    QLabel, QMessageBox, QScrollArea, QSizePolicy, QTextBrowser, QMenu  # Added QMenu
     # QDialog, QTextEdit, QSpinBox, QFormLayout, QListWidget, QListWidgetItem # Moved to manager
 )
-# Added QAction
-from PyQt6.QtGui import QPixmap, QColor, QIcon, QTextOption, QMouseEvent, QImage, QAction
-from PyQt6.QtCore import Qt, QRect, QSize, QUrl, pyqtSignal, QTimer # Added QSize, QUrl for anchor clicks, pyqtSignal, QTimer
-from typing import Dict, Literal, List, Set, Optional,Tuple
+
 # Adjust import paths to work when run from main.py or directly
 # This assumes main.py is in the project root
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -28,7 +28,6 @@ from src.models.monster import Monster # Import the Monster model
 from src.ui.damage_info_window import DamageInfoWindow # Import the new window
 from src.ui.mistake_book_manager import MistakeBookManager, MistakeBookEntryDialog, MistakeBookQueryDialog # Import mistake book components
 from src.core.log import logger # Import the logger
-from functools import partial # Import partial for connecting signals with args
 
 # No longer need ImageViewer
 # from src.ui.image_viewer import ImageViewer

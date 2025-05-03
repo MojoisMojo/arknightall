@@ -1,9 +1,10 @@
-import mss
-import numpy as np
-from PyQt6.QtWidgets import QApplication, QWidget, QRubberBand
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QScreen
+import platform  # 导入 platform 模块
 from PyQt6.QtCore import Qt, QRect, QPoint, pyqtSignal, QSize
-from src.core.log import logger # 导入日志记录器
+from PyQt6.QtGui import QPainter, QPen, QColor, QScreen
+from PyQt6.QtWidgets import QApplication, QWidget, QRubberBand
+
+from src.core.log import logger  # 导入日志记录器
+
 
 class ScreenSelectionWidget(QWidget):
     """
@@ -21,8 +22,11 @@ class ScreenSelectionWidget(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setCursor(Qt.CursorShape.CrossCursor)
-        self.device_pixel_ratio = screen.devicePixelRatio() # 获取并存储比例因子
-
+        raw_pixel_ratio = screen.devicePixelRatio()
+        if platform.system() == 'Darwin': 
+            self.device_pixel_ratio = raw_pixel_ratio / 2.0
+        else:
+            self.device_pixel_ratio = raw_pixel_ratio
         self.rubber_band = None
         self.origin = QPoint()
         self.current_pos = QPoint() # 存储鼠标移动或释放时的全局坐标

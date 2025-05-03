@@ -1,19 +1,20 @@
-import os
-import sys
-import sqlite3
 import json
+import os
+import sqlite3
 import time
-import numpy as np
-from typing import Dict, List, Optional, Tuple # Added Tuple import
+from typing import Dict, List, Optional, Tuple  # Added Tuple import
 
+import numpy as np
+from PyQt6.QtCore import Qt, QUrl, QPoint
+from PyQt6.QtGui import QPixmap, QImage, QAction  # Added QAction
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QMessageBox,
-    QScrollArea, QSizePolicy, QTextBrowser, QTextEdit, QSpinBox, QFormLayout,
-    QListWidget, QListWidgetItem, QWidget, QRadioButton, QButtonGroup, QMenu # Added QMenu
+    QTextBrowser, QTextEdit, QSpinBox, QFormLayout,
+    QListWidget, QListWidgetItem, QWidget, QRadioButton, QButtonGroup, QMenu  # Added QMenu
 )
-from PyQt6.QtGui import QPixmap, QImage, QIcon, QAction # Added QAction
-from PyQt6.QtCore import Qt, QUrl, QPoint
-from src.core.log import logger # Import the logger
+
+from src.core.log import logger  # Import the logger
+
 # Assuming models and constants are accessible relative to the main execution context
 # Adjust paths if necessary based on how this module is imported/used
 try:
