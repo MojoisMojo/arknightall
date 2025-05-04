@@ -6,13 +6,15 @@ from typing import Dict, Literal, List, Optional, Tuple
 import cv2
 import mss  # Keep mss import here as it's used directly for capture
 import numpy as np
+import json # Added for mapping
+import re # Added for extracting ID from template name
 from PyQt6.QtCore import Qt, QRect, QUrl, pyqtSignal, QTimer  # Added QSize, QUrl for anchor clicks, pyqtSignal, QTimer
-# Added QAction
-from PyQt6.QtGui import QPixmap, QTextOption, QMouseEvent, QImage, QAction
+# Added QAction, QIntValidator
+from PyQt6.QtGui import QPixmap, QTextOption, QMouseEvent, QImage, QAction, QFont, QIntValidator # Added QFont, QIntValidator
 # import sqlite3 # No longer needed directly here
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QMessageBox, QScrollArea, QSizePolicy, QTextBrowser, QMenu  # Added QMenu
+    QLabel, QMessageBox, QScrollArea, QSizePolicy, QTextBrowser, QMenu, QLineEdit # Added QMenu, QLineEdit
     # QDialog, QTextEdit, QSpinBox, QFormLayout, QListWidget, QListWidgetItem # Moved to manager
 )
 
@@ -28,6 +30,7 @@ from src.models.monster import Monster # Import the Monster model
 from src.ui.damage_info_window import DamageInfoWindow # Import the new window
 from src.ui.mistake_book_manager import MistakeBookManager, MistakeBookEntryDialog, MistakeBookQueryDialog # Import mistake book components
 from src.core.log import logger # Import the logger
+from src.core import prediction # Import the prediction module
 
 # No longer need ImageViewer
 # from src.ui.image_viewer import ImageViewer
@@ -72,6 +75,9 @@ class MainWindow(QMainWindow):
         self.templates = self._load_templates_safe()
         self.monster_data: Dict[str, Monster] = self._load_monster_data_safe() # Load once, store as dict mapping template_name to Monster obj
         self.mistake_manager = MistakeBookManager(DATABASE_PATH) # Instantiate the manager
+        # Load prediction resources
+        self.prediction_model = prediction.load_prediction_model()
+        self.id_mapping = prediction.load_id_mapping()
         # self.mistake_book_entries: List[Dict] = self.mistake_manager.load_all_mistakes() # Load entries via manager (optional preload)
 
         # --- State Variables ---
@@ -96,6 +102,11 @@ class MainWindow(QMainWindow):
         self.recognize_button = QPushButton("识别") # Changed button text
         self.recognize_button.clicked.connect(self.recognize_roi) # Changed slot connection
         self.recognize_button.setEnabled(False) # Disabled until ROI is set
+
+        # --- Prediction Button ---
+        self.predict_button = QPushButton("预测")
+        self.predict_button.clicked.connect(self._handle_prediction)
+        self.predict_button.setEnabled(False) # Disable initially
 
         # --- Mistake Book Menu Button ---
         self.mistake_book_button = QPushButton("错题本")
@@ -122,6 +133,7 @@ class MainWindow(QMainWindow):
 
         self.button_layout.addWidget(self.set_roi_button)
         self.button_layout.addWidget(self.recognize_button)
+        self.button_layout.addWidget(self.predict_button) # Add predict button next to recognize
         self.button_layout.addStretch() # Push mistake book button to the right
         self.button_layout.addWidget(self.mistake_book_button)
         self.layout.addLayout(self.button_layout) # Add button layout first
@@ -132,6 +144,19 @@ class MainWindow(QMainWindow):
         self.annotated_image_display.setMinimumHeight(120) # Reduced height
         self.annotated_image_display.setStyleSheet("border: 1px solid gray; background-color: #e0e0e0;") # Style it slightly
         self.layout.addWidget(self.annotated_image_display) # Add it below buttons
+
+        # --- Prediction Result Display ---
+        self.prediction_result_label = QLabel("点击“预测”按钮获取结果")
+        self.prediction_result_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Make font larger and bold
+        font = QFont()
+        font.setPointSize(14) # Adjust size as needed
+        font.setBold(True)
+        self.prediction_result_label.setFont(font)
+        self.prediction_result_label.setWordWrap(True) # Allow wrapping if text is long
+        self.prediction_result_label.setMinimumHeight(40) # Ensure some space for the text
+        self.prediction_result_label.setStyleSheet("border: 1px dashed gray; padding: 5px; background-color: #f0f8ff;") # AliceBlue background
+        self.layout.addWidget(self.prediction_result_label) # Add it below the annotated image
 
         # --- Manual Monster Addition Section ---
 
@@ -225,10 +250,17 @@ class MainWindow(QMainWindow):
         # Check layouts and update actions.
         left_monsters = self._get_monsters_from_layout(self.left_display_layout)
         right_monsters = self._get_monsters_from_layout(self.right_display_layout)
-        can_add_or_query = bool(left_monsters or right_monsters)
-        self.action_add_mistake.setEnabled(can_add_or_query)
-        self.action_query_combination.setEnabled(can_add_or_query)
-        # logger.debug(f"Mistake actions updated: Add={can_add_or_query}, Query={can_add_or_query}") # Optional Debugging
+        has_monsters = bool(left_monsters or right_monsters)
+
+        # Enable mistake actions if there are monsters
+        self.action_add_mistake.setEnabled(has_monsters)
+        self.action_query_combination.setEnabled(has_monsters)
+
+        # Enable predict button if there are monsters AND model/mapping are loaded
+        can_predict = has_monsters and self.prediction_model is not None and self.id_mapping is not None
+        self.predict_button.setEnabled(can_predict)
+
+        # logger.debug(f"Actions updated: Add/Query={has_monsters}, Predict={can_predict}") # Optional Debugging
 
     def _load_templates_safe(self):
         """Loads templates and handles potential errors."""
@@ -560,6 +592,11 @@ class MainWindow(QMainWindow):
         card_layout.setContentsMargins(5, 5, 5, 5) # Add some padding
         card_layout.setSpacing(5)
 
+        # --- Layout for Image and Count Input ---
+        image_and_count_layout = QVBoxLayout()
+        image_and_count_layout.setContentsMargins(0, 0, 0, 0)
+        image_and_count_layout.setSpacing(2) # Small spacing between image and input
+
         # --- Clickable Image Label ---
         # Use the custom ClickableImageLabel, passing monster_info and side
         image_label = ClickableImageLabel(monster_info, side)
@@ -580,7 +617,33 @@ class MainWindow(QMainWindow):
         # Connect the clicked signal from the label to the handler function
         image_label.clicked.connect(self._show_damage_info)
 
-        card_layout.addWidget(image_label)
+        image_and_count_layout.addWidget(image_label) # Add image to the vertical layout
+
+        # --- Count Input ---
+        count_input = QLineEdit()
+        count_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        count_input.setFixedWidth(image_label.width()) # Match image width
+        count_input.setToolTip("怪物数量 (可编辑)")
+        # Set initial value, default to 1 if count is None or invalid
+        initial_count_str = "1"
+        if count is not None:
+            try:
+                if int(count) > 0:
+                    initial_count_str = str(count)
+            except (ValueError, TypeError):
+                pass # Keep default "1" if count is not a valid positive integer
+        count_input.setText(initial_count_str)
+        # Add validator for integers between 1 and 99 (adjust range if needed)
+        count_input.setValidator(QIntValidator(1, 99, self))
+        image_and_count_layout.addWidget(count_input) # Add input below image
+
+        # Store reference to the input widget on the card for later access
+        card.count_input = count_input
+        # Connect signal to update the stored count when editing is finished
+        count_input.editingFinished.connect(lambda: self._update_card_count(card))
+
+        # Add the vertical layout (image + count) to the main horizontal layout
+        card_layout.addLayout(image_and_count_layout)
 
         # --- Stats Labels ---
         stats_widget = QWidget()
@@ -650,7 +713,8 @@ class MainWindow(QMainWindow):
         # Need to find the card in the layout and remove it properly
         remove_button.clicked.connect(card.deleteLater)
         # Use QTimer to update state *after* the widget is likely removed from layout
-        remove_button.clicked.connect(lambda: QTimer.singleShot(0, self._update_mistake_actions_state))
+        # This ensures the layout count is updated before checking enablement state
+        remove_button.clicked.connect(lambda: QTimer.singleShot(10, self._update_mistake_actions_state)) # Added small delay
         button_vlayout.addWidget(remove_button)
 
         card_layout.addLayout(button_vlayout) # Add vertical button layout to the main horizontal layout
@@ -659,6 +723,37 @@ class MainWindow(QMainWindow):
         card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed) # Expand horizontally, fixed height
 
         return card
+
+    def _update_card_count(self, card: QWidget):
+        """Updates the recognized_count on the card widget based on QLineEdit input."""
+        if hasattr(card, 'count_input') and hasattr(card, 'monster_data'):
+            text = card.count_input.text()
+            old_count = card.recognized_count # Store old value for logging/reset
+            try:
+                new_count = int(text)
+                if new_count > 0:
+                    card.recognized_count = new_count
+                    logger.debug(f"怪物 {card.monster_data.name} ({card.side}) 数量更新为: {new_count}")
+                    # Update states that depend on monster counts
+                    self._update_mistake_actions_state()
+                    # If prediction button state depends directly on counts > 0, update it too
+                    # self._update_prediction_button_state() # Example
+                else:
+                    # Handle invalid input (e.g., 0 or negative) - reset to 1
+                    reset_count = 1
+                    card.count_input.setText(str(reset_count))
+                    card.recognized_count = reset_count
+                    logger.warning(f"输入无效 '{text}' (<=0) for {card.monster_data.name}. 数量重置为 {reset_count}.")
+                    self._update_mistake_actions_state()
+            except ValueError:
+                # Handle non-integer input - reset to previous valid count or 1
+                reset_count = old_count if old_count is not None and old_count > 0 else 1
+                card.count_input.setText(str(reset_count))
+                # Keep card.recognized_count as the old_count unless it was None/invalid
+                if card.recognized_count is None or card.recognized_count <= 0:
+                    card.recognized_count = 1
+                logger.warning(f"输入无效 '{text}' (非整数) for {card.monster_data.name}. 数量恢复为 {card.recognized_count}.")
+                # No state update needed if count didn't actually change to a valid value
 
     def _get_monsters_from_layout(self, layout: QVBoxLayout) -> List[Tuple[Monster, Optional[int]]]:
         """
@@ -863,6 +958,81 @@ class MainWindow(QMainWindow):
 
         # Note: This method is now only for the automatic notification after recognition.
         # The manual check is handled by _query_current_combination.
+
+    # --- Prediction Handling ---
+    def _handle_prediction(self):
+        """Handles the click of the 'Predict' button."""
+        logger.info("Handling prediction request...")
+        self.prediction_result_label.setText("正在预测...")
+        self.prediction_result_label.setStyleSheet("border: 1px dashed gray; padding: 5px; background-color: #f0f8ff; color: black;") # Reset color
+        QApplication.processEvents() # Update UI
+
+        if not self.prediction_model or not self.id_mapping:
+            QMessageBox.critical(self, "错误", "预测模型或ID映射未加载，无法预测。")
+            self.prediction_result_label.setText("预测失败：资源未加载")
+            return
+
+        # 1. Get monster lists from layouts
+        left_monsters_with_counts = self._get_monsters_from_layout(self.left_display_layout)
+        right_monsters_with_counts = self._get_monsters_from_layout(self.right_display_layout)
+
+        if not left_monsters_with_counts and not right_monsters_with_counts:
+            QMessageBox.information(self, "提示", "左右两侧均无怪物，无法进行预测。")
+            self.prediction_result_label.setText("无怪物可预测")
+            return
+
+        # 2. Extract UI IDs (numeric part from template_name)
+        left_ui_ids = []
+        right_ui_ids = []
+        id_extract_pattern = re.compile(r'obj_(\d+)') # Regex to get number from 'obj_XX'
+
+        for monster, count in left_monsters_with_counts:
+            match = id_extract_pattern.match(monster.template_name)
+            if match:
+                # Add the ID 'count' times if count is known, otherwise once
+                num_to_add = count if count is not None and count > 0 else 1
+                left_ui_ids.extend([match.group(1)] * num_to_add)
+            else:
+                logger.warning(f"无法从左侧怪物模板名称提取ID: {monster.template_name}")
+
+        for monster, count in right_monsters_with_counts:
+            match = id_extract_pattern.match(monster.template_name)
+            if match:
+                num_to_add = count if count is not None and count > 0 else 1
+                right_ui_ids.extend([match.group(1)] * num_to_add)
+            else:
+                logger.warning(f"无法从右侧怪物模板名称提取ID: {monster.template_name}")
+
+        logger.debug(f"Extracted Left UI IDs for prediction: {left_ui_ids}")
+        logger.debug(f"Extracted Right UI IDs for prediction: {right_ui_ids}")
+
+        # 3. Call prediction function
+        # Pass the extracted lists of UI ID strings
+        prediction_result = prediction.predict_outcome(left_ui_ids, right_ui_ids)
+
+        # 4. Display result
+        if prediction_result is not None:
+            right_win_prob = prediction_result
+            left_win_prob = 1.0 - right_win_prob
+            result_text = f"预测结果: 左方胜率 {left_win_prob:.2%} | 右方胜率 {right_win_prob:.2%}"
+            self.prediction_result_label.setText(result_text)
+
+            # Set color based on higher probability
+            if left_win_prob > right_win_prob:
+                # Use a shade of red/orange for left win
+                self.prediction_result_label.setStyleSheet("border: 1px solid gray; padding: 5px; background-color: #ffe4e1; color: #b22222;") # MistyRose background, Firebrick text
+            elif right_win_prob > left_win_prob:
+                # Use a shade of blue for right win
+                self.prediction_result_label.setStyleSheet("border: 1px solid gray; padding: 5px; background-color: #e0ffff; color: #1e90ff;") # LightCyan background, DodgerBlue text
+            else:
+                # Neutral color for a tie or exact 50%
+                self.prediction_result_label.setStyleSheet("border: 1px dashed gray; padding: 5px; background-color: #f5f5f5; color: black;") # WhiteSmoke background
+            logger.info(f"Prediction displayed: {result_text}")
+        else:
+            self.prediction_result_label.setText("预测失败，请查看日志了解详情。")
+            self.prediction_result_label.setStyleSheet("border: 1px solid red; padding: 5px; background-color: #fff0f0; color: red;") # Error style
+            logger.error("Prediction function returned None.")
+
 
 # --- Mistake Book Dialogs --- (REMOVED - Now in mistake_book_manager.py)
 
