@@ -6,7 +6,12 @@
 
 它通过屏幕识别技术自动识别指定区域内的敌方单位，展示其详细属性，并提供一个“错题本”功能，方便博士记录和回顾失误的对局组合。
 
-**本项目不能直接预测胜率，但能通过数值展示和运算，错题回顾等提高博士们的斗蛐蛐水平**
+<del>本项目不能直接预测胜率，但能通过数值展示和运算，错题回顾等提高博士们的斗蛐蛐水平</del>
+
+**现在已添加坎诺特计算器的预测功能，并优化了大量UI**
+
+有关坎诺特计算器，请前往[CannotMax](https://github.com/Ancientea/CannotMax)
+
 
 <del> 本相关99.9%的代码由AI生成，作者不对代码质量与实现方法负责</del>
 
@@ -37,6 +42,10 @@
     *   **自动匹配提示**: 每次屏幕识别完成后，自动检查识别出的怪物组合是否在错题本中有匹配记录，并进行提示。
 
 ## 截图
+**最新版本**:
+
+![图片](https://github.com/user-attachments/assets/5d71f580-62b1-4b92-aad1-ace63f1e6964)
+
 ![图片](https://github.com/user-attachments/assets/f9b9b9b5-ddd6-4253-bd08-f84f8c8c497d)
 ![图片](https://github.com/user-attachments/assets/337db46d-b1d8-44f6-b489-e3eb0a7ce84c)
 ![图片](https://github.com/user-attachments/assets/2bd9e2cf-b217-48c9-abf4-b35459b7b3be)
