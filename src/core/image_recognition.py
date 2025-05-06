@@ -360,6 +360,7 @@ def recognize_monsters(
                 if side == 'left':
                     ocr_y_min = int(ocr_y_min + (ocr_y_max - ocr_y_min) * 0.8)
                     ocr_x_min = int(ocr_x_min + (ocr_x_max - ocr_x_min) * 0.5 )
+                    ocr_x_max = int(ocr_x_max +(ocr_x_max - ocr_x_min) * 0.15 )
                 else: # right side
                     ocr_y_min = int(ocr_y_min + (ocr_y_max - ocr_y_min) * 0.8)
                     ocr_x_max = int(ocr_x_max - (ocr_x_max - ocr_x_min) * 0.5 )
@@ -376,19 +377,24 @@ def recognize_monsters(
                     roi_to_ocr = roi_img_thresh # 使用二值化后的图像进行 OCR
                     # roi_to_ocr = roi_img # 如果二值化效果不好，可以切换回原始 ROI
                     # --- 调试: 保存提取的 ROI (现在是模板区域) ---
-                    # debug_roi_filename = f"debug_roi_bbox_{template_name}_{side}.png" # Changed filename slightly
-                    # try:
-                    #     cv2.imwrite(debug_roi_filename, roi_img_thresh)
-                    #     logger.debug(f"    > 调试: BBox ROI 图像已保存至 {debug_roi_filename}")
-                    # except Exception as imwrite_e:
-                    #     logger.debug(f"    > 调试: 保存 BBox ROI 图像时出错: {imwrite_e}")
-                    # --- End Debug ---
+                    debug_roi_filename = f"debug_roi_bbox_{template_name}_{side}.png" # Changed filename slightly
+                    try:
+                        cv2.imwrite(debug_roi_filename, roi_img_thresh)
+                        logger.debug(f"    > 调试: BBox ROI 图像已保存至 {debug_roi_filename}")
+                    except Exception as imwrite_e:
+                        logger.debug(f"    > 调试: 保存 BBox ROI 图像时出错: {imwrite_e}")
+                    #--- End Debug ---
                     try:
                         # 将 NumPy 图像转为 bytes
                         img_bytes = cv2.imencode('.png', roi_to_ocr)[1].tobytes()
                         # 调用 ddddocr
                         ocr_result_str = ocr_instance.classification(img_bytes)
                         logger.debug(f"    > OCR ({side}侧 '{template_name}' 模板区域): 识别结果 '{ocr_result_str}'") # Updated log message
+
+                        # --- 在 output_image 上绘制 OCR ROI 区域 (亮蓝色框) ---
+                        cv2.rectangle(output_image, (ocr_x_min, ocr_y_min), (ocr_x_max, ocr_y_max), (255, 191, 0), 1) # 亮蓝色 (BGR), 线宽 1
+                        #logger.debug(f"    > 在输出图像上绘制了 OCR ROI 区域 (亮蓝色框)")
+                        # --- 绘制结束 ---
 
                         # 解析数字 (假设格式为 "xN" 或 "N", 或者模板内直接包含数字)
                         match = re.search(r'\d+', ocr_result_str)

@@ -177,6 +177,7 @@ class DamageInfoWindow(QDialog):
 
         self._populate_damage_rows()
 
+
     def _create_monster_display(self, monster: 'Monster', size: int = 80) -> QWidget:
         """Creates a simple widget to display a monster's image and name."""
         widget = QWidget()
@@ -214,8 +215,8 @@ class DamageInfoWindow(QDialog):
 
         return widget
 
-    def _format_damage_string(self, dph, dps, damage_type, dph_percent, direction: str) -> tuple[str, str]:
-        """Formats DPH (with percent) and DPS strings."""
+    def _format_damage_string(self, dph, dps, damage_type, dph_percent, target_health, direction: str) -> tuple[str, str]:
+        """Formats DPH (with percent) and DPS (with Time To Defeat) strings."""
         percent_formatted = f"{dph_percent:.1f}%" # Format percentage first
 
         # Format DPH and add Percentage
@@ -223,23 +224,31 @@ class DamageInfoWindow(QDialog):
             dph_percent_str = f"DPH: <font color='red'>{dph}</font> (0.0%)" # Add 0% percent
         else:
             try:
-               dph_val = float(dph)
-               # New format: DPH: value (Percent: value%) (type)
-               dph_percent_str = f"DPH: {dph_val:.2f} ({percent_formatted}) ({damage_type})"
+                dph_val = float(dph)
+                # New format: DPH: value (Percent: value%) (type)
+                dph_percent_str = f"DPH: {dph_val:.2f} ({percent_formatted}) ({damage_type})"
             except (ValueError, TypeError):
-               dph_percent_str = f"DPH: 无效 ({percent_formatted}) ({damage_type})" # Include percent even if DPH is invalid
+                dph_percent_str = f"DPH: 无效 ({percent_formatted}) ({damage_type})" # Include percent even if DPH is invalid
 
-        # Format DPS only
+        # Format DPS and calculate Time To Defeat (TTD)
+        ttd_str = ""
         try:
             dps_val = float(dps)
-            dps_str = f"DPS: {dps_val:.2f}"
+            if dps_val > 0 and target_health is not None:
+                try:
+                    target_health_val = float(target_health)
+                    time_to_defeat = target_health_val / dps_val
+                    ttd_str = f" (TTD: {time_to_defeat:.2f}s)" # Time To Defeat
+                except (ValueError, TypeError):
+                    ttd_str = " (TTD: N/A)" # Handle case where health is invalid
+            dps_str = f"DPS: {dps_val:.2f}{ttd_str}"
         except (ValueError, TypeError):
             dps_str = "DPS: 无效"
 
         # No need to combine based on direction anymore for DPS string
         # The direction is handled by the widget's alignment
 
-        return dph_percent_str, dps_str # Return DPH+Percent and DPS separately
+        return dph_percent_str, dps_str # Return DPH+Percent and DPS+TTD separately
 
 
     def _populate_damage_rows(self):
@@ -254,17 +263,17 @@ class DamageInfoWindow(QDialog):
             # --- Calculate Damage ---
             # Focused -> Target (Calculate all values)
             dph_f_to_t, dps_f_to_t, type_f_to_t, percent_f_to_t = calculate_damage(focused_monster, target_monster)
-            # Format strings (Percent is now with DPH)
+            # Format strings (Percent is now with DPH, DPS includes TTD)
             dph_percent_f_to_t_str, dps_f_to_t_str = self._format_damage_string(
-                dph_f_to_t, dps_f_to_t, type_f_to_t, percent_f_to_t, 'right' # Direction might still be useful for tooltips or future logic
+                dph_f_to_t, dps_f_to_t, type_f_to_t, percent_f_to_t, target_monster.health, 'right' # Pass target health
             )
             tooltip_f_to_t = f"{focused_monster.name} 对 {target_monster.name}"
 
             # Target -> Focused (Calculate all values)
             dph_t_to_f, dps_t_to_f, type_t_to_f, percent_t_to_f = calculate_damage(target_monster, focused_monster)
-            # Format strings (Percent is now with DPH)
+            # Format strings (Percent is now with DPH, DPS includes TTD)
             dph_percent_t_to_f_str, dps_t_to_f_str = self._format_damage_string(
-                dph_t_to_f, dps_t_to_f, type_t_to_f, percent_t_to_f, 'left'
+                dph_t_to_f, dps_t_to_f, type_t_to_f, percent_t_to_f, focused_monster.health, 'left' # Pass focused health
             )
             tooltip_t_to_f = f"{target_monster.name} 对 {focused_monster.name}"
 

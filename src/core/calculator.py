@@ -70,7 +70,8 @@ def calculate_damage(attacker: 'Monster', defender: 'Monster') -> Tuple[Union[fl
     else:
         damage_type = "物理"
         if attack <= defense:
-            dph = "不破防"
+            # If attack does not penetrate defense, deal 5% of attack as damage
+            dph = attack * 0.05
         else:
             dph = attack - defense
 
