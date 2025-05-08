@@ -1,7 +1,7 @@
 colorlog==6.9.0
 ddddocr==1.5.6
 mss==10.0.0
-numpy==2.2.5
+numpy
 opencv_python==4.11.0.86
 opencv_python_headless==4.11.0.86
 PyQt6==6.9.0
