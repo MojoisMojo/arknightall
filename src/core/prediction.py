@@ -197,7 +197,7 @@ def load_id_mapping() -> Optional[Dict[str, str]]:
         QMessageBox.critical(None, "错误", f"加载ID映射文件时出错: {e}")
         return None
 
-def load_prediction_model():
+def load_prediction_model(use_fine_tuned=True):
     """Loads the prediction model."""
     global _prediction_model
     if _prediction_model is not None:
@@ -209,6 +209,18 @@ def load_prediction_model():
         QMessageBox.critical(None, "错误", f"预测模型文件丢失: {MODEL_PATH}\n请确保模型已训练并放置在正确位置。")
         return None
 
+    # 尝试加载微调模型
+    fine_tuned_path = MODEL_PATH.replace('.pth', '_fine_tuned.pth')
+    if use_fine_tuned and os.path.exists(fine_tuned_path):
+        try:
+            model = torch.load(fine_tuned_path, map_location=device)
+            model.eval()
+            _prediction_model = model
+            logger.info("已加载微调后的预测模型")
+            return _prediction_model
+        except Exception as e:
+            logger.warning(f"加载微调模型失败: {e}，将尝试加载原始模型")
+    
     try:
         # Try loading with weights_only=False first for custom classes
         try:
