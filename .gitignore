@@ -15,3 +15,5 @@ logs/
 data/settings.json
 data/mistakes.db
 captured_roi_for_recognition.png
+data/models
+!data/models/best_model_full_fine_tuned.pth
