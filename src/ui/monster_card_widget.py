@@ -319,7 +319,7 @@ class MonsterDisplayArea(QWidget):
             return
 
         for template_name in monster_template_names:
-            monster_info: Monster | None = self.monster_data_dict.get(template_name)
+            monster_info: Monster = self.monster_data_dict.get(template_name)
 
             if not monster_info:
                 logger.warning(f"在数据中找不到模板名称 '{template_name}' 对应的怪物信息。")

@@ -72,12 +72,12 @@ class MainWindow(QMainWindow):
         # self.mistake_book_entries: List[Dict] = self.mistake_manager.load_all_mistakes() # Load entries via manager (optional preload)
 
         # --- State Variables ---
-        self.last_roi_screenshot: np.ndarray | None = None # To store screenshot for add dialog
-        # self.current_screenshot: np.ndarray | None = None # No longer store full screenshot
+        self.last_roi_screenshot: np.ndarray = None # To store screenshot for add dialog
+        # self.current_screenshot: np.ndarray = None # No longer store full screenshot
         # self.current_selection = QRect() # No longer need selection from image viewer
         self.recognition_roi = QRect() # Stores the user-defined Region of Interest (screen coordinates)
-        self.screen_selector: ScreenSelectionWidget | None = None # Reference to the selector widget
-        self.selected_monster_template_name: str | None = None # Track selected monster for manual add
+        self.screen_selector: ScreenSelectionWidget = None # Reference to the selector widget
+        self.selected_monster_template_name: str = None # Track selected monster for manual add
         # Removed QButtonGroup as selection is handled by QTextBrowser clicks
 
         # --- UI Elements ---
@@ -342,7 +342,7 @@ class MainWindow(QMainWindow):
 
    # --- Manual Add/Select Methods ---
 
-    def _populate_monster_selection_list(self, selected_template_name: str | None = None):
+    def _populate_monster_selection_list(self, selected_template_name: str = None):
         """
         Populates the QTextBrowser with clickable monster icons using HTML.
         Highlights the icon corresponding to selected_template_name.

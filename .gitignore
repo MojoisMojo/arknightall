@@ -1,0 +1,17 @@
+# 默认忽略的文件
+/shelf/
+/workspace.xml
+# 基于编辑器的 HTTP 客户端请求
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+*__pycache__*
+debug*.png
+debug*.log
+template_gray/
+log/
+logs/
+data/settings.json
+data/mistakes.db
+captured_roi_for_recognition.png

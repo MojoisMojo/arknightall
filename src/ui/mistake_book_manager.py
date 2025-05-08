@@ -118,7 +118,7 @@ class MistakeBookManager:
             QMessageBox.critical(None, "数据库加载失败", f"加载错题记录时发生未知错误：{e}")
             return []
 
-    def insert_mistake(self, entry_data: Dict) -> int | None:
+    def insert_mistake(self, entry_data: Dict) -> int:
         """Inserts a new mistake entry into the database."""
         timestamp = entry_data.get('timestamp', time.strftime("%Y-%m-%d %H:%M:%S"))
         left_monsters = entry_data.get('left', {}).get('monsters', {})
